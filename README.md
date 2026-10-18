@@ -11,7 +11,7 @@ Built on top of [`alexa-remote2`](https://github.com/Apollon77/alexa-remote) (th
 
 ## Features
 
-18 tools exposed over MCP, grouped by domain:
+19 tools exposed over MCP, grouped by domain:
 
 **Devices**
 - `alexa_list_devices` — list every Echo in the account with serial, type, online status
@@ -36,6 +36,9 @@ Built on top of [`alexa-remote2`](https://github.com/Apollon77/alexa-remote) (th
 - `alexa_list_lists` — list shopping / to-do / custom lists
 - `alexa_get_list_items` — read items from a list
 - `alexa_add_list_item` — append an item to a list
+
+**History**
+- `alexa_get_voice_history` — read-only: what was said to each Echo in a daily time window (night hours by default) over the last N days, with the device that heard it and Alexa's reply. Handy for tracking down which Echo triggered an unexpected action
 
 ---
 
@@ -169,8 +172,9 @@ Once configured, you can ask Claude things like:
 ```
 alexa-mcp/
 ├── src/
-│   ├── index.js         # MCP server entry point — registers all 18 tools
+│   ├── index.js         # MCP server entry point — registers all 19 tools
 │   ├── alexa-client.js  # Thin wrapper around alexa-remote2
+│   ├── voice-history.js # Time windows and paging for alexa_get_voice_history
 │   └── auth.js          # Interactive auth flow (run once)
 ├── .auth-data/          # OAuth tokens (created at first auth, git-ignored)
 ├── package.json

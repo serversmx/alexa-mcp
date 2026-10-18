@@ -401,6 +401,32 @@ export class AlexaClient {
     });
   }
 
+  // --- Voice History ---
+
+  async getVoiceHistory(startTime, endTime) {
+    await this.init();
+    // Served from www.amazon.com's privacy pages; add the at-main/ubid-main
+    // aliases the way the group calls do, in case only regional cookies exist.
+    this._enrichCookie();
+    return new Promise((resolve, reject) => {
+      this.alexa.getCustomerHistoryRecords(
+        { startTime, endTime, filter: true, forceRequest: true },
+        (err, records) => {
+          if (err) return reject(err);
+          resolve(
+            (records || []).map((r) => ({
+              timestamp: r.creationTimestamp,
+              device: r.name,
+              serialNumber: r.deviceSerialNumber,
+              said: r.description?.summary || '',
+              alexa: r.alexaResponse || '',
+            }))
+          );
+        }
+      );
+    });
+  }
+
   // --- Auth helpers ---
 
   _loadAuth() {

@@ -11,6 +11,15 @@ Bitácora cronológica de cambios significativos en este proyecto.
 
 ---
 
+## Sin publicar
+
+### Nueva herramienta `alexa_get_voice_history` (solo lectura)
+
+- Lista lo que se le dijo a cada Echo en una franja horaria diaria (por defecto de noche, 22–07) de los últimos N días: dispositivo, transcripción y respuesta de Alexa. Sirve para averiguar qué Echo disparó una acción inesperada.
+- `alexa-client.js`: `getVoiceHistory()` envuelve `getCustomerHistoryRecords` de `alexa-remote2` y devuelve registros compactos (sin el blob `data`).
+- `voice-history.js` (nuevo, sin red): ventanas por día con zona horaria y DST; como `alexa-remote2` devuelve una sola página (10 registros), una ventana llena se divide a la mitad y se vuelve a pedir.
+- Verificado contra una cuenta real: 90 noches, 250 peticiones, 820 registros, ninguna ventana truncada.
+
 ## 2026-09-22 — v1.1.1
 
 ### La sesión de Amazon ya no se cae a cada rato

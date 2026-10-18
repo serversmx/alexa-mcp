@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { AlexaClient } from './alexa-client.js';
+import { nightWindows, collectHistory, formatRecord } from './voice-history.js';
 
 const client = new AlexaClient();
 const server = new McpServer({
@@ -627,6 +628,98 @@ server.registerTool(
           {
             type: 'text',
             text: 'Group deleted successfully.',
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================
+// TOOL: Voice History (read-only)
+// ============================================================
+server.registerTool(
+  'alexa_get_voice_history',
+  {
+    title: 'Get Voice History',
+    description:
+      'Read-only. List what was said to each Echo during a daily time window (night hours by default) over the last N days: which Echo heard it, the transcript, and what Alexa answered. Useful for finding out which device or request triggered an unexpected action.',
+    inputSchema: z.object({
+      days: z
+        .number()
+        .int()
+        .min(1)
+        .max(90)
+        .default(30)
+        .describe('How many nights back to look'),
+      nightStartHour: z
+        .number()
+        .int()
+        .min(0)
+        .max(23)
+        .default(22)
+        .describe('Start of the daily window (hour, in timeZone)'),
+      nightEndHour: z
+        .number()
+        .int()
+        .min(0)
+        .max(23)
+        .default(7)
+        .describe(
+          'End of the daily window (hour, in timeZone). At or before the start hour means the window runs past midnight; equal to it means the whole day'
+        ),
+      timeZone: z
+        .string()
+        .optional()
+        .describe(
+          'IANA time zone for the window and the times shown (default: the server\'s time zone)'
+        ),
+      extraTimeZones: z
+        .array(z.string())
+        .default([])
+        .describe('Also show each record\'s time in these IANA time zones'),
+      serialNumber: z
+        .string()
+        .optional()
+        .describe('Only return records from this Echo (from alexa_list_devices)'),
+    }),
+  },
+  async ({ days, nightStartHour, nightEndHour, timeZone, extraTimeZones, serialNumber }) => {
+    try {
+      const zone = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const windows = nightWindows({
+        days,
+        startHour: nightStartHour,
+        endHour: nightEndHour,
+        timeZone: zone,
+      });
+      const { records, truncated } = await collectHistory(
+        (start, end) => client.getVoiceHistory(start, end),
+        windows
+      );
+      const matching = serialNumber
+        ? records.filter((r) => r.serialNumber === serialNumber)
+        : records;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                count: matching.length,
+                truncatedWindows: truncated.length,
+                records: matching.map((r) =>
+                  formatRecord(r, [zone, ...extraTimeZones.filter((tz) => tz !== zone)])
+                ),
+              },
+              null,
+              2
+            ),
           },
         ],
       };
