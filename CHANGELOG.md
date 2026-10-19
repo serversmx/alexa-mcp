@@ -11,6 +11,15 @@ Bitácora cronológica de cambios significativos en este proyecto.
 
 ---
 
+## Sin publicar
+
+### Nueva herramienta `alexa_delete_routine`
+
+- Borra una rutina con `DELETE /api/behaviors/automations/{automationId}`. `alexa-remote2` solo trae listar y ejecutar rutinas. Ojo: la ruta `/api/behaviors/v2/automations/{id}` (la de listar) **no** sirve para borrar: responde 404 sin cuerpo incluso con GET.
+- Seguro por diseño: exige `automationId` **y** el nombre exacto; si no coinciden, o la rutina no existe, no borra nada. Devuelve la definición borrada para poder recrearla en la app.
+- `routines.js` (nuevo, sin red): `findRoutineToDelete()` y `describeRoutine()`, con `test/routines.test.mjs`. `alexa-client.js`: `deleteRoutine()` vuelve a leer la lista antes de borrar.
+- Verificado contra una cuenta real: se borró una rutina existente (73 → 72 rutinas, solo desapareció esa).
+
 ## 2026-09-22 — v1.1.1
 
 ### La sesión de Amazon ya no se cae a cada rato

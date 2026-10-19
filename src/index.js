@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { AlexaClient } from './alexa-client.js';
+import { describeRoutine } from './routines.js';
 
 const client = new AlexaClient();
 const server = new McpServer({
@@ -303,6 +304,48 @@ server.registerTool(
           {
             type: 'text',
             text: 'Routine executed successfully.',
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================
+// TOOL: Delete Routine
+// ============================================================
+server.registerTool(
+  'alexa_delete_routine',
+  {
+    title: 'Delete Alexa Routine',
+    description:
+      'Permanently delete one Alexa routine. Requires both its automationId and its exact name (from alexa_list_routines); nothing is deleted if they do not match. Returns the deleted routine definition so it can be recreated in the Alexa app if needed.',
+    inputSchema: z.object({
+      automationId: z
+        .string()
+        .describe('The routine automationId from alexa_list_routines'),
+      name: z
+        .string()
+        .describe('The routine exact name, as a safety check against a wrong ID'),
+    }),
+  },
+  async ({ automationId, name }) => {
+    try {
+      const routine = await client.deleteRoutine(automationId, name);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              { deleted: describeRoutine(routine), definition: routine },
+              null,
+              2
+            ),
           },
         ],
       };

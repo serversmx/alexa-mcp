@@ -10,6 +10,7 @@ import {
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
+import { findRoutineToDelete } from './routines.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -267,6 +268,19 @@ export class AlexaClient {
         resolve({ success: true });
       });
     });
+  }
+
+  async deleteRoutine(automationId, expectedName) {
+    const routine = findRoutineToDelete(await this.getRoutines(), automationId, expectedName);
+    this._enrichCookie();
+    await new Promise((resolve, reject) => {
+      this.alexa.httpsGet(
+        `/api/behaviors/automations/${encodeURIComponent(automationId)}`,
+        (err) => (err ? reject(err) : resolve()),
+        { method: 'DELETE' }
+      );
+    });
+    return routine;
   }
 
   // --- Lists ---
