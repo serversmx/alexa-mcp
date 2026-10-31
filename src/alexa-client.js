@@ -10,6 +10,7 @@ import {
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
+import { findDeviceToChange, assertNotInGroup } from './devices.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -166,6 +167,27 @@ export class AlexaClient {
         resolve(result);
       });
     });
+  }
+
+  async setDeviceEnabled(applianceId, expectedName, enabled) {
+    const device = findDeviceToChange(await this.getSmarthomeDevices(), applianceId, expectedName);
+    this._enrichCookie();
+    await new Promise((resolve, reject) => {
+      this.alexa.setEnablementForSmarthomeDevice(applianceId, enabled, (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
+    return device;
+  }
+
+  async deleteSmarthomeDevice(applianceId, expectedName) {
+    const device = findDeviceToChange(await this.getSmarthomeDevices(), applianceId, expectedName);
+    assertNotInGroup(await this.getSmarthomeGroups(), device, expectedName);
+    this._enrichCookie();
+    await new Promise((resolve, reject) => {
+      this.alexa.deleteSmarthomeDevice(applianceId, (err) => (err ? reject(err) : resolve()));
+    });
+    return device;
   }
 
   async querySmarthomeDevices(entityIds) {

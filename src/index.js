@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { AlexaClient } from './alexa-client.js';
+import { summarizeDevices } from './devices.js';
 
 const client = new AlexaClient();
 const server = new McpServer({
@@ -304,6 +305,115 @@ server.registerTool(
             type: 'text',
             text: 'Routine executed successfully.',
           },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================
+// TOOL: Compact Smart Home Device Summary
+// ============================================================
+server.registerTool(
+  'alexa_list_smarthome_summary',
+  {
+    title: 'Summarize Smart Home Devices',
+    description:
+      'Read-only compact listing of smart home devices: name, applianceId, enablement, category, manufacturer and the groups each belongs to. Use this instead of alexa_list_smarthome_devices (very large) to pick the target for alexa_set_device_enabled or alexa_delete_smarthome_device.',
+    inputSchema: z.object({}),
+  },
+  async () => {
+    try {
+      const [devices, groups] = await Promise.all([
+        client.getSmarthomeDevices(),
+        client.getSmarthomeGroups(),
+      ]);
+      return {
+        content: [
+          { type: 'text', text: JSON.stringify(summarizeDevices(devices, groups), null, 2) },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================
+// TOOL: Enable/Disable Smart Home Device
+// ============================================================
+server.registerTool(
+  'alexa_set_device_enabled',
+  {
+    title: 'Enable or Disable Smart Home Device',
+    description:
+      'Enable or disable one smart home device in Alexa (the app\'s "Disable device" setting). Requires its applianceId and exact friendly name (from alexa_list_smarthome_summary); nothing changes if they do not match. A disabled device drops out of voice and group control, and routines that target it may stop working.',
+    inputSchema: z.object({
+      applianceId: z
+        .string()
+        .describe('The applianceId from alexa_list_smarthome_summary'),
+      expectedName: z
+        .string()
+        .describe('The device exact friendly name, as a safety check against a wrong ID'),
+      enabled: z.boolean().describe('true to enable, false to disable'),
+    }),
+  },
+  async ({ applianceId, expectedName, enabled }) => {
+    try {
+      const device = await client.setDeviceEnabled(applianceId, expectedName, enabled);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              { name: device.friendlyName, applianceId, was: device.enablement, requested: enabled ? 'enabled' : 'disabled' },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: `Error: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================
+// TOOL: Delete Smart Home Device
+// ============================================================
+server.registerTool(
+  'alexa_delete_smarthome_device',
+  {
+    title: 'Delete Smart Home Device',
+    description:
+      'Remove one smart home device entry from Alexa. Requires its applianceId and exact friendly name (from alexa_list_smarthome_summary); nothing is deleted if they do not match, or if a group still lists the device. A device from a linked skill is discovered again unless it is removed in the vendor app or the skill is unlinked. Returns the removed device definition.',
+    inputSchema: z.object({
+      applianceId: z
+        .string()
+        .describe('The applianceId from alexa_list_smarthome_summary'),
+      expectedName: z
+        .string()
+        .describe('The device exact friendly name, as a safety check against a wrong ID'),
+    }),
+  },
+  async ({ applianceId, expectedName }) => {
+    try {
+      const device = await client.deleteSmarthomeDevice(applianceId, expectedName);
+      return {
+        content: [
+          { type: 'text', text: JSON.stringify({ deleted: device.friendlyName, definition: device }, null, 2) },
         ],
       };
     } catch (err) {
