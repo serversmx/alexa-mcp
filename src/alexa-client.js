@@ -182,7 +182,7 @@ export class AlexaClient {
 
   async deleteSmarthomeDevice(applianceId, expectedName) {
     const device = findDeviceToChange(await this.getSmarthomeDevices(), applianceId, expectedName);
-    assertNotInGroup(await this.getSmarthomeGroups(), applianceId, expectedName);
+    assertNotInGroup(await this.getSmarthomeGroups(), device, expectedName);
     this._enrichCookie();
     await new Promise((resolve, reject) => {
       this.alexa.deleteSmarthomeDevice(applianceId, (err) => (err ? reject(err) : resolve()));

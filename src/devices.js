@@ -31,17 +31,70 @@ export function findDeviceToChange(devices, applianceId, expectedName) {
   return device;
 }
 
-/** Names of the groups that list this appliance as a member. */
-export function groupsContaining(groups, applianceId) {
-  if (!Array.isArray(groups)) return [];
-  return groups
-    .filter((g) => Array.isArray(g.applianceIds) && g.applianceIds.includes(applianceId))
+/**
+ * The group list as an array. getSmarthomeGroups returns { applianceGroups: [...] };
+ * an array is accepted too. Anything else throws: the group check guards a delete,
+ * so an unrecognised shape must not read as "no groups".
+ */
+export function groupListOf(groups) {
+  if (Array.isArray(groups)) return groups;
+  if (groups && Array.isArray(groups.applianceGroups)) return groups.applianceGroups;
+  throw new Error('Unexpected smart-home group list from Amazon.');
+}
+
+/**
+ * Key for an Echo's group entry. Groups list an Echo as '{"dsn":"<serial>","deviceType":"<type>"}'
+ * and the device itself carries driverIdentity { namespace: 'AlexaBridge', identifier: '<serial>@<type>' }.
+ */
+function dsnKey(serial, deviceType) {
+  return serial && deviceType ? `dsn:${serial}@${deviceType}` : undefined;
+}
+
+function groupMemberKey(member) {
+  if (typeof member !== 'string' || !member.startsWith('{')) return member;
+  try {
+    const parsed = JSON.parse(member);
+    return dsnKey(parsed.dsn, parsed.deviceType) || member;
+  } catch {
+    return member;
+  }
+}
+
+/** Every key under which a group may list this device: its ID, merged IDs and the Echo dsn form. */
+function memberKeysOf(device) {
+  const keys = new Set();
+  const legacy = (device && device.legacyAppliance) || {};
+  if (legacy.applianceId) keys.add(legacy.applianceId);
+  for (const id of legacy.mergedApplianceIds || []) keys.add(id);
+  const identity = legacy.driverIdentity;
+  if (identity && identity.namespace === 'AlexaBridge' && identity.identifier) {
+    const [serial, deviceType] = identity.identifier.split('@');
+    keys.add(dsnKey(serial, deviceType));
+  } else {
+    const match = /^AlexaBridge_([^@_]+)@([^_]+)_/.exec(legacy.applianceId || '');
+    if (match) keys.add(dsnKey(match[1], match[2]));
+  }
+  keys.delete(undefined);
+  return keys;
+}
+
+/**
+ * Names of the groups that list this device as a member. Takes the device (so merged
+ * IDs and the Echo dsn form match) or a bare applianceId string.
+ */
+export function groupsContaining(groups, device) {
+  const keys = typeof device === 'string' ? new Set([device]) : memberKeysOf(device);
+  return groupListOf(groups)
+    .filter(
+      (g) =>
+        Array.isArray(g.applianceIds) && g.applianceIds.some((m) => keys.has(groupMemberKey(m)))
+    )
     .map((g) => g.name);
 }
 
 /** Refuse to delete a device that a group still lists, so no group is left with a dead entry. */
-export function assertNotInGroup(groups, applianceId, name) {
-  const inGroups = groupsContaining(groups, applianceId);
+export function assertNotInGroup(groups, device, name) {
+  const inGroups = groupsContaining(groups, device);
   if (inGroups.length > 0) {
     throw new Error(
       `"${name}" is still a member of: ${inGroups.join(', ')}. Remove it from the group first. Nothing deleted.`
@@ -68,7 +121,7 @@ export function summarizeDevices(devices, groups = []) {
           ? d.displayCategories.primary.value
           : null,
         manufacturer: d.manufacturer && d.manufacturer.value ? d.manufacturer.value.text : null,
-        groups: groupsContaining(groups, applianceId),
+        groups: groupsContaining(groups, d),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name) || a.applianceId.localeCompare(b.applianceId));

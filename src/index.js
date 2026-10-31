@@ -333,10 +333,9 @@ server.registerTool(
         client.getSmarthomeDevices(),
         client.getSmarthomeGroups(),
       ]);
-      const list = Array.isArray(groups) ? groups : groups.applianceGroups;
       return {
         content: [
-          { type: 'text', text: JSON.stringify(summarizeDevices(devices, list), null, 2) },
+          { type: 'text', text: JSON.stringify(summarizeDevices(devices, groups), null, 2) },
         ],
       };
     } catch (err) {
