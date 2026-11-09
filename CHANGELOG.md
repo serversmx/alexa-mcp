@@ -11,6 +11,15 @@ Bitácora cronológica de cambios significativos en este proyecto.
 
 ---
 
+## 2026-11-09 — v1.1.2
+
+### Dependencias al día y vulnerabilidades corregidas
+
+- `alexa-remote2` 8.0.4 → 8.1.1, `@modelcontextprotocol/sdk` 1.29.0 → 1.32.2, `zod` 4.4.3 → 4.6.7. Los rangos mínimos de `package.json` suben para que una instalación nueva no traiga versiones vulnerables.
+- `npm audit`: de 13 vulnerabilidades (1 crítica, 7 altas) a 3 bajas. Las que quedan son `cookie` vía `alexa-cookie2` (upstream); `npm audit fix --force` bajaría `alexa-remote2` a 1.0.3, así que no se aplica.
+- `index.js`: la versión que reporta el server ahora se lee de `package.json` (estaba fija en `1.0.0`).
+- Verificado en `personal` y `pa`: handshake MCP, 18 tools y `alexa_list_devices` OK; el refresco de token se persistió completo.
+
 ## 2026-09-22 — v1.1.1
 
 ### La sesión de Amazon ya no se cae a cada rato

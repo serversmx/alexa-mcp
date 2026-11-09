@@ -1,12 +1,17 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
 import { AlexaClient } from './alexa-client.js';
+
+const { version } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+);
 
 const client = new AlexaClient();
 const server = new McpServer({
   name: 'alexa-mcp-server',
-  version: '1.0.0',
+  version,
 });
 
 // ============================================================
