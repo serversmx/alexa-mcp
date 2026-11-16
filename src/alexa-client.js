@@ -170,12 +170,39 @@ export class AlexaClient {
 
   async querySmarthomeDevices(entityIds) {
     await this.init();
-    return new Promise((resolve, reject) => {
-      this.alexa.querySmarthomeDevices(entityIds, (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
+    const query = (ids, entityType) =>
+      new Promise((resolve, reject) => {
+        this.alexa.querySmarthomeDevices(
+          ids.map((id) => ({ entityId: id, entityType })),
+          (err, result) => {
+            if (err) return reject(err);
+            resolve(result || {});
+          }
+        );
       });
-    });
+
+    // Echo-hosted endpoints (temperature sensors, acoustic sensors) are
+    // components of the Echo device, and /api/phoenix/state only answers for
+    // them with entityType ENTITY; plain appliances need APPLIANCE. Query as
+    // APPLIANCE first, then retry whatever Amazon rejected as ENTITY.
+    const result = await query(entityIds, 'APPLIANCE');
+    const missing = new Set(entityIds);
+    for (const ds of result.deviceStates || []) {
+      if (ds.entity && ds.entity.entityId) missing.delete(ds.entity.entityId);
+    }
+    if (missing.size) {
+      const retry = await query([...missing], 'ENTITY');
+      result.deviceStates = (result.deviceStates || []).concat(
+        retry.deviceStates || []
+      );
+      // TargetApplianceNotFoundException for the retried ids is now stale
+      result.errors = (result.errors || []).filter(
+        (e) => !(retry.deviceStates || []).some(
+          (ds) => ds.entity && e.entity && ds.entity.entityId === e.entity.entityId
+        )
+      );
+    }
+    return result;
   }
 
   // --- Announcements ---
